@@ -1,0 +1,38 @@
+volumes:
+  db:
+services:
+  sesamo:
+    container_name: sesamo
+    depends_on:
+      postgres:
+        condition: service_healthy
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - 3000:3000
+    volumes:
+      - ./:/app
+    restart: unless-stopped
+    extra_hosts:
+      - "sesamo.dev:172.17.0.1"
+  postgres:
+    container_name: postgres
+    image: postgres:16
+    restart: unless-stopped
+    networks:
+      - default
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRESQL_USER}
+      POSTGRES_PASSWORD: ${POSTGRESQL_PASSWORD}
+      POSTGRES_DB: ${POSTGRESQL_DB}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - db:/var/lib/postgresql/data
+      - .docker/init.sh:/docker-entrypoint-initdb.d/init.sh:z
