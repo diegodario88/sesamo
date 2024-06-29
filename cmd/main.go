@@ -3,8 +3,8 @@ package main
 import (
 	"fmt"
 	"log"
-	"os"
 
+	"github.com/diegodario88/sesamo/config"
 	"github.com/jmoiron/sqlx"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
@@ -12,22 +12,13 @@ import (
 
 var DBConnString string
 
-func MustGetEnv(key string) string {
-	value := os.Getenv(key)
-	if value == "" {
-		log.Fatalf("FATAL: Environment variable %s is not set!", key)
-	}
-
-	return value
-}
-
 func init() {
 	err := godotenv.Load()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	DBConnString = MustGetEnv("DATABASE_URL")
+	DBConnString = config.MustGetEnv("DATABASE_URL")
 }
 
 func main() {

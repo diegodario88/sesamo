@@ -12,10 +12,10 @@ services:
     ports:
       - 3000:3000
     volumes:
-      - ./:/app
+      - ./:/app:z
     restart: unless-stopped
     extra_hosts:
-      - "sesamo.dev:172.17.0.1"
+      - "suindara.dev:172.17.0.1"
   postgres:
     container_name: postgres
     image: postgres:16
