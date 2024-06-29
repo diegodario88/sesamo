@@ -20,7 +20,7 @@ func (serviceTestSuite *ServiceTestSuite) SetupTest() {
 	serviceTestSuite.mockUserStore = new(store.MockUserStore)
 	serviceTestSuite.mockUser = new(types.MockUser)
 	serviceTestSuite.userService = service.UserService{
-		store: serviceTestSuite.mockUserStore,
+		Store: serviceTestSuite.mockUserStore,
 	}
 }
 

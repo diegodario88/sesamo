@@ -9,19 +9,18 @@ import (
 
 type IUserStore interface {
 	FindUserByEmail(email string) (*types.User, error)
-	NewUserStore(db *sqlx.DB) UserStore
 }
 
 type UserStore struct {
 	db *sqlx.DB
 }
 
-func NewUserStore(db *sqlx.DB) UserStore {
+func NewUserStore(db *sqlx.DB) *UserStore {
 	var newUserStore = UserStore{
 		db: db,
 	}
 
-	return newUserStore
+	return &newUserStore
 }
 
 func (userStore *UserStore) InsertUser(user *types.User) (*types.User, error) {

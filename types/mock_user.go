@@ -4,6 +4,7 @@ import "github.com/stretchr/testify/mock"
 
 type MockUser struct {
 	mock.Mock
+	User
 }
 
 func (m *MockUser) CheckPassword(password string) (bool, error) {

@@ -3,10 +3,13 @@ package service_test
 func (suite *ServiceTestSuite) TestAuthenticateUserByEmailPassword() {
 	email := "test@example.com"
 	password := "password123"
+	hashedPassword := "hashedpassword123"
 
-	suite.mockUser.On("GetEmail").Return(email)
-	suite.mockUser.On("CheckPassword", password).Return(true, nil)
+	suite.mockUser.Email = email
+	suite.mockUser.PasswordHash = &hashedPassword
+
 	suite.mockUserStore.On("FindUserByEmail", email).Return(suite.mockUser, nil)
+	suite.mockUser.On("CheckPassword", password).Return(true, nil)
 
 	result, err := suite.userService.AuthenticateUserByEmailPassword(email, password)
 

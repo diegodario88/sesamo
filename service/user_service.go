@@ -7,12 +7,12 @@ import (
 )
 
 type UserService struct {
-	store store.IUserStore
+	Store store.IUserStore
 }
 
 func NewUserService(db *sqlx.DB) UserService {
 	var newUserService = UserService{
-		store: store.NewUserStore(db),
+		Store: store.NewUserStore(db),
 	}
 
 	return newUserService
@@ -22,7 +22,7 @@ func (userService *UserService) AuthenticateUserByEmailPassword(
 	email string,
 	password string,
 ) (*types.User, error) {
-	user, err := userService.store.FindUserByEmail(email)
+	user, err := userService.Store.FindUserByEmail(email)
 
 	if err != nil {
 		return nil, err
