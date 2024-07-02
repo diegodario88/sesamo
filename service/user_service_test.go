@@ -5,12 +5,15 @@ import "github.com/diegodario88/sesamo/types"
 func (suite *ServiceTestSuite) TestAuthenticateUserByEmailPassword() {
 	email := "test@example.com"
 	password := "password123"
-	hashedPassword := "$argon2id$v=19$m=65536,t=3,p=2$Woo1mErn1s7AHf96ewQ8Uw$D4TzIwGO4XD2buk96qAP+Ed2baMo/KbTRMqXX00wtsU"
 
 	correctUser := &types.User{
-		Email:        email,
-		PasswordHash: &hashedPassword,
+		Email: email,
 	}
+
+	encondedHash, errHash := correctUser.HashPassword(password)
+	suite.NoError(errHash)
+
+	correctUser.PasswordHash = &encondedHash
 
 	suite.mockUserStore.On("FindUserByEmail", email).Return(correctUser, nil)
 
