@@ -35,9 +35,11 @@ func (user *User) CheckPassword(password string) (bool, error) {
 	}
 
 	match, err := argon2id.ComparePasswordAndHash(password, *user.PasswordHash)
+
 	if err != nil {
 		return false, fmt.Errorf("CheckPassword: %w", err)
 	}
+
 	if !match {
 		return false, ErrInvalidUserOrPassword
 	}

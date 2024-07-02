@@ -6,8 +6,12 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
+type userFindable interface {
+	FindUserByEmail(email string) (*types.User, error)
+}
+
 type UserService struct {
-	Store store.IUserStore
+	Store userFindable
 }
 
 func NewUserService(db *sqlx.DB) UserService {

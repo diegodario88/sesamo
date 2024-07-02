@@ -1,34 +1,27 @@
 package main
 
 import (
-	"fmt"
+	"database/sql"
 	"log"
 
+	api "github.com/diegodario88/sesamo/cmd/http"
 	"github.com/diegodario88/sesamo/config"
 	"github.com/jmoiron/sqlx"
-	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 )
 
-var DBConnString string
-
-func init() {
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	DBConnString = config.MustGetEnv("DATABASE_URL")
+func main() {
+	storage := sqlx.MustConnect("postgres", config.Variables.DatabaseUrl)
+	healthcheckDb(storage.DB)
+	api.NewServer(config.Variables.Port, storage.DB).Run()
 }
 
-func main() {
-	db := sqlx.MustConnect("postgres", DBConnString)
-	var version string
+func healthcheckDb(db *sql.DB) {
+	err := db.Ping()
 
-	err := db.QueryRow("select version()").Scan(&version)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	fmt.Println(version)
+	log.Println("Database Successfully connected!")
 }

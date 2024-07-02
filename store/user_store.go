@@ -7,10 +7,6 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-type IUserStore interface {
-	FindUserByEmail(email string) (*types.User, error)
-}
-
 type UserStore struct {
 	db *sqlx.DB
 }
