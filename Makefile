@@ -1,4 +1,4 @@
-path=migrations
+path=db/migrations
 dsn="postgres://admin:admin@suindara.dev/sesamo?sslmode=disable"
 
 .PHONY: build run test up down create db-status

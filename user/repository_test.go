@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/diegodario88/sesamo/config"
-	"github.com/diegodario88/sesamo/migrations"
+	"github.com/diegodario88/sesamo/db"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 	"github.com/pressly/goose/v3"
@@ -44,7 +44,7 @@ func (repositoryTestSuite *RepositoryTestSuite) SetupTest() {
 	fmt.Println(testConnString)
 	repositoryTestSuite.db = sqlx.MustConnect("postgres", testConnString)
 
-	goose.SetBaseFS(migrations.Files)
+	goose.SetBaseFS(db.Migrations)
 
 	if err := goose.SetDialect("postgres"); err != nil {
 		panic(err)
