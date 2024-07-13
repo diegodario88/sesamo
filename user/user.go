@@ -97,7 +97,7 @@ func (user *UserEntity) CreateJWT() (string, error) {
 		"expiresAt": time.Now().Add(expiration).Unix(),
 	})
 
-	tokenString, err := token.SignedString(config.Variables.JwtSecret)
+	tokenString, err := token.SignedString([]byte(config.Variables.JwtSecret))
 
 	if err != nil {
 		return "", err
