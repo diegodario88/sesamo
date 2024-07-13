@@ -13,7 +13,7 @@ import (
 func main() {
 	storage := sqlx.MustConnect("postgres", config.Variables.DatabaseUrl)
 	healthcheckDb(storage.DB)
-	api.NewServer(config.Variables.Port, storage.DB).Run()
+	api.NewServer(config.Variables.Port, storage).Run()
 }
 
 func healthcheckDb(db *sql.DB) {

@@ -1,17 +1,19 @@
 package api
 
 import (
-	"database/sql"
 	"fmt"
 	"log"
 	"net/http"
 
-	"github.com/diegodario88/sesamo/utils"
+	"github.com/diegodario88/sesamo/httphelper"
+	"github.com/diegodario88/sesamo/user"
+	"github.com/gorilla/mux"
+	"github.com/jmoiron/sqlx"
 )
 
 type APIServer struct {
 	port int64
-	db   *sql.DB
+	db   *sqlx.DB
 }
 
 type Info struct {
@@ -24,7 +26,7 @@ type Alive struct {
 	Info   Info
 }
 
-func NewServer(port int64, db *sql.DB) *APIServer {
+func NewServer(port int64, db *sqlx.DB) *APIServer {
 	return &APIServer{
 		port: port,
 		db:   db,
@@ -32,20 +34,23 @@ func NewServer(port int64, db *sql.DB) *APIServer {
 }
 
 func (api APIServer) Run() {
-	mux := http.NewServeMux()
+	router := mux.NewRouter()
+	subrouter := router.PathPrefix("/api/v1").Subrouter()
+
+	user.NewHandler(user.NewUserService(api.db)).RegisterRoutes(subrouter)
 
 	liveness := func(w http.ResponseWriter, r *http.Request) {
 		log.Println("HTTP Server is alive!")
-		utils.WriteJSON(w, http.StatusOK, Alive{
+		httphelper.WriteJSON(w, http.StatusOK, Alive{
 			Status: "ok",
 			Info:   Info{Service: "Sesamo", Condition: "up"},
 		})
 	}
 
-	mux.Handle("/live", http.HandlerFunc(liveness))
+	router.Handle("/live", http.HandlerFunc(liveness))
 
 	log.Printf("API Server listening at http://localhost:%d", api.port)
-	err := http.ListenAndServe(fmt.Sprintf(":%d", api.port), mux)
+	err := http.ListenAndServe(fmt.Sprintf(":%d", api.port), router)
 
 	if err != nil {
 		log.Fatal(err)

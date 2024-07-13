@@ -11,9 +11,11 @@ import (
 var Variables = initConfig()
 
 type environment struct {
-	DatabaseUrl     string
-	TestDatabaseUrl string
-	Port            int64
+	DatabaseUrl            string
+	TestDatabaseUrl        string
+	Port                   int64
+	JwtSecret              string
+	JwtExpirationInSeconds int64
 }
 
 func mustGetEnv(key string) string {
@@ -39,9 +41,18 @@ func initConfig() environment {
 		log.Fatal(err)
 	}
 
+	stringJwtExpiration := mustGetEnv("JWT_EXPIRATION_IN_SECONDS")
+	intJwtExpiration, err := strconv.ParseInt(stringJwtExpiration, 10, 64)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	return environment{
-		DatabaseUrl:     mustGetEnv("DATABASE_URL"),
-		TestDatabaseUrl: mustGetEnv("TEST_DATABASE_URL"),
-		Port:            intPort,
+		DatabaseUrl:            mustGetEnv("DATABASE_URL"),
+		TestDatabaseUrl:        mustGetEnv("TEST_DATABASE_URL"),
+		Port:                   intPort,
+		JwtSecret:              mustGetEnv("JWT_SECRET"),
+		JwtExpirationInSeconds: intJwtExpiration,
 	}
 }
