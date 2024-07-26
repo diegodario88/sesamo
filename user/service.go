@@ -2,6 +2,7 @@ package user
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/diegodario88/sesamo/httphelper"
@@ -28,8 +29,10 @@ func NewUserService(db *sqlx.DB) UserService {
 }
 
 func (userService *UserService) Login(w http.ResponseWriter, r *http.Request) {
+	log.Print("Starting login request ...")
 	var loginUserPayload LoginUserPayload
 	if err := httphelper.ParseJSON(r, &loginUserPayload); err != nil {
+		log.Print(err)
 		httphelper.WriteError(w, http.StatusBadRequest, err)
 		return
 	}
@@ -62,6 +65,7 @@ func (userService *UserService) Login(w http.ResponseWriter, r *http.Request) {
 }
 
 func (userService *UserService) Register(w http.ResponseWriter, r *http.Request) {
+	log.Print("Starting register request ...")
 	var registerUserPayload RegisterUserPayload
 	if err := httphelper.ParseJSON(r, &registerUserPayload); err != nil {
 		httphelper.WriteError(w, http.StatusBadRequest, err)
