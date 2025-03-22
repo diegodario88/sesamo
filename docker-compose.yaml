@@ -3,12 +3,20 @@ volumes:
 services:
   sesamo:
     container_name: sesamo
+    image: sesamo:1.0.0
+    stop_grace_period: 30s
     depends_on:
       postgres:
         condition: service_healthy
     build:
       context: .
       dockerfile: Dockerfile
+      target: development
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: 2
     ports:
       - 3000:3000
     volumes:
@@ -18,7 +26,9 @@ services:
       - "suindara.dev:172.17.0.1"
   postgres:
     container_name: postgres
-    image: postgres:16
+    build:
+      context: .
+      dockerfile: Dockerfile.postgres
     restart: unless-stopped
     networks:
       - default
