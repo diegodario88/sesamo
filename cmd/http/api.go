@@ -1,10 +1,12 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
 
+	"github.com/diegodario88/sesamo/config"
 	"github.com/diegodario88/sesamo/httphelper"
 	"github.com/diegodario88/sesamo/user"
 	"github.com/gorilla/mux"
@@ -12,8 +14,9 @@ import (
 )
 
 type APIServer struct {
-	port int64
-	db   *sqlx.DB
+	port   int64
+	db     *sqlx.DB
+	server *http.Server
 }
 
 type Info struct {
@@ -26,14 +29,14 @@ type Alive struct {
 	Info   Info
 }
 
-func NewServer(port int64, db *sqlx.DB) *APIServer {
+func NewServer(db *sqlx.DB) *APIServer {
 	return &APIServer{
-		port: port,
+		port: config.Variables.Port,
 		db:   db,
 	}
 }
 
-func (api APIServer) Run() {
+func (api *APIServer) Run() error {
 	router := mux.NewRouter()
 	subrouter := router.PathPrefix("/api/v1").Subrouter()
 
@@ -49,10 +52,26 @@ func (api APIServer) Run() {
 
 	router.Handle("/live", http.HandlerFunc(liveness))
 
-	log.Printf("API Server listening at http://localhost:%d", api.port)
-	err := http.ListenAndServe(fmt.Sprintf(":%d", api.port), router)
-
-	if err != nil {
-		log.Fatal(err)
+	api.server = &http.Server{
+		Addr:    fmt.Sprintf(":%d", api.port),
+		Handler: router,
 	}
+
+	log.Printf("API Server listening at http://localhost:%d", api.port)
+
+	err := api.server.ListenAndServe()
+	if err != nil {
+		return err
+	}
+
+	log.Printf("API Server listening at http://localhost:%d", api.port)
+	return nil
+}
+
+func (api *APIServer) Shutdown(ctx context.Context) error {
+	if api.server != nil {
+		log.Println("Calling gracefully http shutdown...")
+		return api.server.Shutdown(ctx)
+	}
+	return nil
 }
