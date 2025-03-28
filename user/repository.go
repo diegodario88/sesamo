@@ -59,3 +59,71 @@ func (userRepository *UserRepository) FindUserByEmail(email string) (*UserEntity
 
 	return &foundResult, nil
 }
+
+func (userRepository *UserRepository) FindUserById(id string) (*UserEntity, error) {
+	var foundResult UserEntity
+	sqlQuery := `SELECT * FROM users u WHERE u.id = $1`
+
+	err := userRepository.db.Get(&foundResult, sqlQuery, id)
+
+	if err != nil {
+		return nil, fmt.Errorf("FindUserById: %w", err)
+	}
+
+	return &foundResult, nil
+}
+
+func (userRepository *UserRepository) FindAllUsers() ([]UserEntity, error) {
+	var foundResult []UserEntity
+	sqlQuery := `SELECT * FROM users`
+
+	err := userRepository.db.Select(&foundResult, sqlQuery)
+
+	if err != nil {
+		return nil, fmt.Errorf("FindUserById: %w", err)
+	}
+
+	return foundResult, nil
+}
+
+func (userRepository *UserRepository) GetRoles(userId string) ([]string, error) {
+	query := `
+		SELECT r.name 
+		FROM roles r
+		JOIN user_roles ur ON r.id = ur.role_id
+		WHERE ur.user_id = $1
+	`
+
+	rows, err := userRepository.db.Query(query, userId)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var roles []string
+	for rows.Next() {
+		var role string
+		if err := rows.Scan(&role); err != nil {
+			return nil, err
+		}
+		roles = append(roles, role)
+	}
+
+	return roles, nil
+}
+
+func (userRepository *UserRepository) HasAccess(userID string, permission string) (bool, error) {
+	var hasPermission bool
+	err := userRepository.db.QueryRow(`
+		SELECT EXISTS (
+			SELECT 1
+			FROM users u
+			JOIN user_roles ur ON u.id = ur.user_id
+			JOIN role_permissions rp ON ur.role_id = rp.role_id
+			JOIN permissions p ON rp.permission_id = p.id
+			WHERE u.id = $1 AND p.name = $2
+		)
+	`, userID, permission).Scan(&hasPermission)
+
+	return hasPermission, err
+}

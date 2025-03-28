@@ -9,3 +9,6 @@
 - [x] Login
 - [x] JWT
 - [x] Message Queue
+- [ ] Microsoft AD
+- [x] RBAC
+- [x] ULID (Universally Unique Lexicographically Sortable Identifier)

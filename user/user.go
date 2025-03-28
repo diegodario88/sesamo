@@ -5,13 +5,10 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/alexedwards/argon2id"
-	"github.com/diegodario88/sesamo/config"
-	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/argon2"
 )
 
@@ -22,7 +19,7 @@ const parallelism uint8 = 2
 const keyLength uint32 = 32
 
 type UserEntity struct {
-	ID           int       `db:"id"            json:"id"`
+	ID           string    `db:"id"            json:"id"`
 	FirstName    string    `db:"first_name"    json:"firstName"`
 	LastName     string    `db:"last_name"     json:"lastName"`
 	Email        string    `db:"email"         json:"email"`
@@ -87,23 +84,6 @@ func (user *UserEntity) CheckPassword(password string) (bool, error) {
 	}
 
 	return true, nil
-}
-
-func (user *UserEntity) CreateJWT() (string, error) {
-	expiration := time.Second * time.Duration(config.Variables.JwtExpirationInSeconds)
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"userID":    strconv.Itoa(user.ID),
-		"expiresAt": time.Now().Add(expiration).Unix(),
-	})
-
-	tokenString, err := token.SignedString([]byte(config.Variables.JwtSecret))
-
-	if err != nil {
-		return "", err
-	}
-
-	return tokenString, err
 }
 
 func generateRandomBytes(n uint32) ([]byte, error) {
