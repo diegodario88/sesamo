@@ -1,5 +1,7 @@
 @baseUrl=http://suindara.dev:3000/api/v1
+@adminUserId=01JQEG0PHECS7VVSSMRWXGBTEA
 
+### Register a new regular user
 POST {{baseUrl}}/users/register HTTP/1.1
 content-type: application/json
 accept: application/json
@@ -11,8 +13,21 @@ accept: application/json
   "password": "123@123a"
 }
 
-###
+### Login as admin user
+# @name login
+POST {{baseUrl}}/users/login HTTP/1.1
+content-type: application/json
+accept: application/json
 
+{
+  "email": "admin@admin.com",
+  "password": "123@123a"
+}
+
+@adminToken = {{login.response.body.token}}
+
+### Login as regular user (non-admin)
+# @name regularLogin
 POST {{baseUrl}}/users/login HTTP/1.1
 content-type: application/json
 accept: application/json
@@ -22,5 +37,34 @@ accept: application/json
   "password": "123@123a"
 }
 
-###
+@regularUserToken = {{regularLogin.response.body.token}}
 
+### Get all users (as admin) - Should SUCCEED
+GET {{baseUrl}}/users HTTP/1.1
+content-type: application/json
+accept: application/json
+Authorization: Bearer {{adminToken}}
+
+### Get specific user by ID (as admin) - Should SUCCEED
+GET {{baseUrl}}/users/{{adminUserId}} HTTP/1.1
+content-type: application/json
+accept: application/json
+Authorization: Bearer {{adminToken}}
+
+### Get all users (as regular user) - Should FAIL with 403 Forbidden
+# if regular users don't have "users:read" permission
+GET {{baseUrl}}/users HTTP/1.1
+content-type: application/json
+accept: application/json
+Authorization: Bearer {{regularUserToken}}
+
+### Get user without auth token - Should FAIL with 401 Unauthorized
+GET {{baseUrl}}/users HTTP/1.1
+content-type: application/json
+accept: application/json
+
+### Get user with invalid/expired token - Should FAIL with 401 Unauthorized
+GET {{baseUrl}}/users HTTP/1.1
+content-type: application/json
+accept: application/json
+Authorization: Bearer invalidtokenvalue12345

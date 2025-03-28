@@ -16,6 +16,7 @@ type environment struct {
 	Port                   int64
 	JwtSecret              string
 	JwtExpirationInSeconds int64
+	MicrosoftTenantId      string
 }
 
 func mustGetEnv(key string) string {
@@ -54,5 +55,6 @@ func initConfig() environment {
 		Port:                   intPort,
 		JwtSecret:              mustGetEnv("JWT_SECRET"),
 		JwtExpirationInSeconds: intJwtExpiration,
+		MicrosoftTenantId:      mustGetEnv("MICROSOFT_TENANT_ID"),
 	}
 }
