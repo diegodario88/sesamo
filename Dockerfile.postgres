@@ -1,11 +1,30 @@
-FROM postgres:15-alpine
+ARG postgresql_major=16
+ARG postgresql_release=${postgresql_major}.8
+ARG pgx_ulid_release=0.2.0
 
-RUN \
-  apk update && \
-  apk upgrade && \
-  apk add --no-cache postgresql-pg_cron=1.5.2-r0 --repository=https://dl-cdn.alpinelinux.org/alpine/v3.18/community;
+FROM postgres:${postgresql_release} AS base
 
-RUN ln -s /usr/lib/postgresql15/pg_cron.so /usr/local/lib/postgresql/pg_cron.so && \
-  ln -s /usr/share/postgresql15/extension/pg_cron* /usr/local/share/postgresql/extension
+ARG postgresql_major
+ARG pgx_ulid_release
+ARG TARGETARCH
 
-CMD ["-c", "shared_preload_libraries=pg_cron", "-c", "cron.database_name=sesamo"]
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    wget \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN wget -O /tmp/pgx_ulid.deb "https://github.com/pksunkara/pgx_ulid/releases/download/v${pgx_ulid_release}/pgx_ulid-v${pgx_ulid_release}-pg${postgresql_major}-${TARGETARCH}-linux-gnu.deb"
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    /tmp/pgx_ulid.deb \
+    postgresql-${postgresql_major}-cron \
+    && rm -rf /var/lib/apt/lists/* /tmp/*
+
+RUN mkdir -p /usr/share/postgresql/${postgresql_major}/extension
+
+CMD [
+    "postgres", 
+    "-c", "shared_preload_libraries=pg_cron,pgx_ulid", 
+    "-c", "cron.database_name=sesamo", 
+    "-c", "cron.log_statement = off"
+    ]
