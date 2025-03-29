@@ -68,3 +68,45 @@ GET {{baseUrl}}/users HTTP/1.1
 content-type: application/json
 accept: application/json
 Authorization: Bearer invalidtokenvalue12345
+
+### Get current user 
+GET {{baseUrl}}/users/me HTTP/1.1
+content-type: application/json
+accept: application/json
+Authorization: Bearer {{adminToken}}
+
+### Get user's organizations 
+# @name adminOrg
+GET {{baseUrl}}/users/organizations HTTP/1.1
+content-type: application/json
+accept: application/json
+Authorization: Bearer {{adminToken}}
+
+@adminOrgId = {{adminOrg.response.body.[0].id}}
+
+### Get organization users 
+GET {{baseUrl}}/organizations/{{adminOrgId}}/users HTTP/1.1
+content-type: application/json
+accept: application/json
+Authorization: Bearer {{adminToken}}
+
+### Get specific user in organization
+GET {{baseUrl}}/organizations/{{adminOrgId}}/users/{{adminUserId}} HTTP/1.1
+content-type: application/json
+accept: application/json
+Authorization: Bearer {{adminToken}}
+
+### Get list of branches for organization
+# @name adminBranch
+GET {{baseUrl}}/organizations/{{adminOrgId}}/branches HTTP/1.1
+content-type: application/json
+accept: application/json
+Authorization: Bearer {{adminToken}}
+
+@adminBranchId = {{adminBranch.response.body.[0].id}}
+
+### Get users in a specific branch
+GET {{baseUrl}}/organizations/{{adminOrgId}}/branches/{{adminBranchId}}/users HTTP/1.1
+content-type: application/json
+accept: application/json
+Authorization: Bearer {{adminToken}}
