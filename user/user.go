@@ -28,6 +28,28 @@ type UserEntity struct {
 	UpdatedAt    time.Time `db:"updated_at"    json:"updated_at"`
 }
 
+type OrganizationEntity struct {
+	ID                   string    `db:"id"                      json:"id"`
+	ExternalCompanyId    int       `db:"external_company_id"     json:"external_company_id"`
+	ExternalHeadOfficeId int       `db:"external_head_office_id" json:"external_head_office_id"`
+	Name                 string    `db:"name"                    json:"name"`
+	Description          string    `db:"description"             json:"description"`
+	CreatedAt            time.Time `db:"created_at"              json:"created_at"`
+	UpdatedAt            time.Time `db:"updated_at"              json:"updated_at"`
+}
+
+type BranchEntity struct {
+	ID               string    `db:"id"                 json:"id"`
+	ExternalOfficeId int       `db:"external_office_id" json:"external_office_id"`
+	CNPJ             string    `db:"cnpj"               json:"cnpj"`
+	OrganizationId   string    `db:"organization_id"    json:"organization_id"`
+	Name             string    `db:"name"               json:"name"`
+	Description      string    `db:"description"        json:"description"`
+	IsWarehouse      bool      `db:"is_warehouse"       json:"is_warehouse"`
+	CreatedAt        time.Time `db:"created_at"         json:"created_at"`
+	UpdatedAt        time.Time `db:"updated_at"         json:"updated_at"`
+}
+
 type RegisterUserPayload struct {
 	FirstName string `json:"firstName" validate:"required"`
 	LastName  string `json:"lastName"  validate:"required"`
