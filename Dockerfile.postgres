@@ -22,9 +22,4 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 RUN mkdir -p /usr/share/postgresql/${postgresql_major}/extension
 
-CMD [
-    "postgres", 
-    "-c", "shared_preload_libraries=pg_cron,pgx_ulid", 
-    "-c", "cron.database_name=sesamo", 
-    "-c", "cron.log_statement = off"
-    ]
+CMD ["postgres", "-c", "shared_preload_libraries=pg_cron,pgx_ulid", "-c", "cron.database_name=sesamo", "-c", "cron.log_statement=off", "-c", "cron.use_background_workers=on", "-c", "cron.max_running_jobs=2"]
