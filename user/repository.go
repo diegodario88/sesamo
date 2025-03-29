@@ -18,12 +18,12 @@ func NewUserRepository(db *sqlx.DB) *UserRepository {
 	return &newUserRepository
 }
 
-func (userRepository *UserRepository) InsertUser(user *UserEntity) (*UserEntity, error) {
+func (repo *UserRepository) InsertUser(user *UserEntity) (*UserEntity, error) {
 	var insertResult UserEntity
 	sqlQuery := `INSERT INTO users (first_name, last_name, email, password_hash) 
                           values ($1, $2, $3, $4) returning *`
 
-	err := userRepository.db.Get(
+	err := repo.db.Get(
 		&insertResult,
 		sqlQuery,
 		user.FirstName,
@@ -39,19 +39,19 @@ func (userRepository *UserRepository) InsertUser(user *UserEntity) (*UserEntity,
 	return &insertResult, nil
 }
 
-func (userRepository *UserRepository) CountUsers() (int, error) {
+func (repo *UserRepository) CountUsers() (int, error) {
 	var countResult int
 	sqlQuery := `SELECT COUNT(*) FROM users`
-	err := userRepository.db.QueryRow(sqlQuery).Scan(&countResult)
+	err := repo.db.QueryRow(sqlQuery).Scan(&countResult)
 
 	return countResult, err
 }
 
-func (userRepository *UserRepository) FindUserByEmail(email string) (*UserEntity, error) {
+func (repo *UserRepository) FindUserByEmail(email string) (*UserEntity, error) {
 	var foundResult UserEntity
 	sqlQuery := `SELECT * FROM users u WHERE u.email = $1`
 
-	err := userRepository.db.Get(&foundResult, sqlQuery, email)
+	err := repo.db.Get(&foundResult, sqlQuery, email)
 
 	if err != nil {
 		return nil, fmt.Errorf("FindUserByEmail: %w", err)
@@ -60,11 +60,11 @@ func (userRepository *UserRepository) FindUserByEmail(email string) (*UserEntity
 	return &foundResult, nil
 }
 
-func (userRepository *UserRepository) FindUserById(id string) (*UserEntity, error) {
+func (repo *UserRepository) FindUserById(id string) (*UserEntity, error) {
 	var foundResult UserEntity
 	sqlQuery := `SELECT * FROM users u WHERE u.id = $1`
 
-	err := userRepository.db.Get(&foundResult, sqlQuery, id)
+	err := repo.db.Get(&foundResult, sqlQuery, id)
 
 	if err != nil {
 		return nil, fmt.Errorf("FindUserById: %w", err)
@@ -73,11 +73,11 @@ func (userRepository *UserRepository) FindUserById(id string) (*UserEntity, erro
 	return &foundResult, nil
 }
 
-func (userRepository *UserRepository) FindAllUsers() ([]UserEntity, error) {
+func (repo *UserRepository) FindAllUsers() ([]UserEntity, error) {
 	var foundResult []UserEntity
 	sqlQuery := `SELECT * FROM users`
 
-	err := userRepository.db.Select(&foundResult, sqlQuery)
+	err := repo.db.Select(&foundResult, sqlQuery)
 
 	if err != nil {
 		return nil, fmt.Errorf("FindUserById: %w", err)
@@ -86,7 +86,7 @@ func (userRepository *UserRepository) FindAllUsers() ([]UserEntity, error) {
 	return foundResult, nil
 }
 
-func (userRepository *UserRepository) GetRoles(userId string) ([]string, error) {
+func (repo *UserRepository) GetRoles(userId string) ([]string, error) {
 	query := `
 		SELECT r.name 
 		FROM roles r
@@ -94,7 +94,7 @@ func (userRepository *UserRepository) GetRoles(userId string) ([]string, error) 
 		WHERE ur.user_id = $1
 	`
 
-	rows, err := userRepository.db.Query(query, userId)
+	rows, err := repo.db.Query(query, userId)
 	if err != nil {
 		return nil, err
 	}
@@ -112,9 +112,9 @@ func (userRepository *UserRepository) GetRoles(userId string) ([]string, error) 
 	return roles, nil
 }
 
-func (userRepository *UserRepository) HasAccess(userID string, permission string) (bool, error) {
+func (repo *UserRepository) HasAccess(userId string, permission string) (bool, error) {
 	var hasPermission bool
-	err := userRepository.db.QueryRow(`
+	err := repo.db.QueryRow(`
 		SELECT EXISTS (
 			SELECT 1
 			FROM users u
@@ -123,7 +123,185 @@ func (userRepository *UserRepository) HasAccess(userID string, permission string
 			JOIN permissions p ON rp.permission_id = p.id
 			WHERE u.id = $1 AND p.name = $2
 		)
-	`, userID, permission).Scan(&hasPermission)
+	`, userId, permission).Scan(&hasPermission)
 
 	return hasPermission, err
+}
+
+func (repo *UserRepository) GetUserOrganizations(userId string) ([]OrganizationEntity, error) {
+	organizations := []OrganizationEntity{}
+
+	query := `
+    SELECT DISTINCT
+        o.id,
+        o.external_company_id,
+        o.external_head_office_id,
+        o.name,
+        o.description,
+        o.created_at,
+        o.updated_at
+    FROM
+        organizations o
+        JOIN user_roles ur ON o.id = ur.organization_id
+    WHERE
+        ur.user_id = $1
+    UNION
+    SELECT DISTINCT
+        o.id,
+        o.external_company_id,
+        o.external_head_office_id,
+        o.name,
+        o.description,
+        o.created_at,
+        o.updated_at
+    FROM
+        organizations o
+    WHERE
+        EXISTS (
+            SELECT
+                1
+            FROM
+                user_roles ur
+                JOIN roles r ON ur.role_id = r.id
+            WHERE
+                ur.user_id = $1
+                AND r.scope = 'global');`
+
+	err := repo.db.Select(&organizations, query, userId)
+	return organizations, err
+}
+
+func (repo *UserRepository) GetUserBranches(userId string, orgId string) ([]BranchEntity, error) {
+	branches := []BranchEntity{}
+
+	query := `
+		SELECT DISTINCT 
+			b.id, 
+			b.external_office_id, 
+			b.cnpj, 
+			b.organization_id, 
+			b.name, 
+			b.description, 
+			b.is_warehouse, 
+			b.created_at, 
+			b.updated_at
+		FROM branches b
+		WHERE b.organization_id = $1 AND (
+			EXISTS (
+				SELECT 1 FROM user_roles ur 
+				WHERE ur.user_id = $2 AND ur.branch_id = b.id
+			) OR
+			EXISTS (
+				SELECT 1 FROM user_roles ur
+				JOIN roles r ON ur.role_id = r.id
+				WHERE ur.user_id = $2 AND ur.organization_id = $1 AND r.scope = 'organization'
+			) OR
+			EXISTS (
+				SELECT 1 FROM user_roles ur
+				JOIN roles r ON ur.role_id = r.id
+				WHERE ur.user_id = $2 AND r.scope = 'global'
+			)
+		);
+	`
+	err := repo.db.Select(&branches, query, orgId, userId)
+	return branches, err
+}
+
+func (repo *UserRepository) FindOrganizationUsers(orgID string) ([]UserEntity, error) {
+	users := []UserEntity{}
+
+	query := `
+        SELECT DISTINCT u.* 
+        FROM users u
+        JOIN user_roles ur ON u.id = ur.user_id
+        WHERE ur.organization_id = $1 OR 
+            EXISTS (
+                SELECT 1 FROM user_roles ur2
+                JOIN roles r ON ur2.role_id = r.id
+                WHERE ur2.user_id = u.id AND r.scope = 'global'
+            )
+    `
+
+	err := repo.db.Select(&users, query, orgID)
+	return users, err
+}
+
+func (repo *UserRepository) FindOrganizationUserByID(
+	orgID string,
+	userID string,
+) (*UserEntity, error) {
+	var user UserEntity
+
+	query := `
+        SELECT u.* 
+        FROM users u
+        WHERE u.id = $1 AND (
+            EXISTS (
+                SELECT 1 FROM user_roles ur
+                WHERE ur.user_id = u.id AND ur.organization_id = $2
+            ) OR
+            EXISTS (
+                SELECT 1 FROM user_roles ur
+                JOIN roles r ON ur.role_id = r.id
+                WHERE ur.user_id = u.id AND r.scope = 'global'
+            )
+        )
+    `
+
+	err := repo.db.Get(&user, query, userID, orgID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &user, nil
+}
+
+func (repo *UserRepository) FindBranchUsers(orgID string, branchID string) ([]UserEntity, error) {
+	users := []UserEntity{}
+
+	query := `
+        SELECT DISTINCT u.* 
+        FROM users u
+        WHERE 
+            EXISTS (
+                SELECT 1 FROM user_roles ur
+                WHERE ur.user_id = u.id AND ur.branch_id = $2
+            ) OR
+            EXISTS (
+                SELECT 1 FROM user_roles ur
+                JOIN roles r ON ur.role_id = r.id
+                WHERE ur.user_id = u.id AND ur.organization_id = $1 AND r.scope = 'organization'
+            ) OR
+            EXISTS (
+                SELECT 1 FROM user_roles ur
+                JOIN roles r ON ur.role_id = r.id
+                WHERE ur.user_id = u.id AND r.scope = 'global'
+            )
+    `
+
+	err := repo.db.Select(&users, query, orgID, branchID)
+	return users, err
+}
+
+func (repo *UserRepository) GetOrganizationBranches(orgID string) ([]BranchEntity, error) {
+	branches := []BranchEntity{}
+
+	query := `
+		SELECT 
+			id, 
+			external_office_id, 
+			cnpj, 
+			organization_id, 
+			name, 
+			description, 
+			is_warehouse, 
+			created_at, 
+			updated_at
+		FROM branches
+		WHERE organization_id = $1
+		ORDER BY name
+	`
+
+	err := repo.db.Select(&branches, query, orgID)
+	return branches, err
 }

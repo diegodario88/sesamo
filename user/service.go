@@ -22,21 +22,27 @@ type IUserRepository interface {
 	FindAllUsers() ([]UserEntity, error)
 	HasAccess(userId string, permission string) (bool, error)
 	GetRoles(userId string) ([]string, error)
+	GetUserOrganizations(userId string) ([]OrganizationEntity, error)
+	GetUserBranches(userId string, orgId string) ([]BranchEntity, error)
+	FindOrganizationUsers(orgID string) ([]UserEntity, error)
+	FindOrganizationUserByID(orgID string, userID string) (*UserEntity, error)
+	FindBranchUsers(orgID string, branchID string) ([]UserEntity, error)
+	GetOrganizationBranches(orgID string) ([]BranchEntity, error)
 }
 
 type UserService struct {
-	Repository IUserRepository
+	Repo IUserRepository
 }
 
 func NewUserService(db *sqlx.DB) UserService {
 	var newUserService = UserService{
-		Repository: NewUserRepository(db),
+		Repo: NewUserRepository(db),
 	}
 
 	return newUserService
 }
 
-func (userService *UserService) Login(w http.ResponseWriter, r *http.Request) {
+func (svc *UserService) Login(w http.ResponseWriter, r *http.Request) {
 	log.Print("Starting login request ...")
 	var loginUserPayload LoginUserPayload
 	if err := httphelper.ParseJSON(r, &loginUserPayload); err != nil {
@@ -51,7 +57,7 @@ func (userService *UserService) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := userService.authenticateUserByEmailPassword(loginUserPayload)
+	user, err := svc.authenticateUserByEmailPassword(loginUserPayload)
 
 	if err != nil {
 		httphelper.WriteError(
@@ -62,7 +68,7 @@ func (userService *UserService) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := userService.GenerateUserToken(user)
+	token, err := svc.GenerateUserToken(user)
 
 	if err != nil {
 		httphelper.WriteError(w, http.StatusInternalServerError, err)
@@ -72,7 +78,7 @@ func (userService *UserService) Login(w http.ResponseWriter, r *http.Request) {
 	httphelper.WriteJSON(w, http.StatusOK, map[string]string{"token": token})
 }
 
-func (userService *UserService) Register(w http.ResponseWriter, r *http.Request) {
+func (svc *UserService) Register(w http.ResponseWriter, r *http.Request) {
 	log.Print("Starting register request ...")
 	var registerUserPayload RegisterUserPayload
 	if err := httphelper.ParseJSON(r, &registerUserPayload); err != nil {
@@ -86,7 +92,7 @@ func (userService *UserService) Register(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	user, err := userService.Repository.FindUserByEmail(registerUserPayload.Email)
+	user, err := svc.Repo.FindUserByEmail(registerUserPayload.Email)
 
 	if err == nil {
 		httphelper.WriteError(
@@ -111,7 +117,7 @@ func (userService *UserService) Register(w http.ResponseWriter, r *http.Request)
 		PasswordHash: &hashedPassword,
 	}
 
-	insertedUser, err := userService.Repository.InsertUser(&userToBeInserted)
+	insertedUser, err := svc.Repo.InsertUser(&userToBeInserted)
 
 	if err != nil {
 		httphelper.WriteError(w, http.StatusInternalServerError, err)
@@ -121,8 +127,8 @@ func (userService *UserService) Register(w http.ResponseWriter, r *http.Request)
 	httphelper.WriteJSON(w, http.StatusCreated, insertedUser)
 }
 
-func (userService *UserService) GetAllUsers(w http.ResponseWriter, r *http.Request) {
-	users, err := userService.Repository.FindAllUsers()
+func (svc *UserService) GetAllUsers(w http.ResponseWriter, r *http.Request) {
+	users, err := svc.Repo.FindAllUsers()
 	if err != nil {
 		httphelper.WriteError(w, http.StatusInternalServerError, err)
 		return
@@ -131,7 +137,7 @@ func (userService *UserService) GetAllUsers(w http.ResponseWriter, r *http.Reque
 	httphelper.WriteJSON(w, http.StatusOK, users)
 }
 
-func (userService *UserService) GetUserByID(w http.ResponseWriter, r *http.Request) {
+func (svc *UserService) GetUserByID(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, ok := vars["id"]
 	if !ok {
@@ -139,7 +145,7 @@ func (userService *UserService) GetUserByID(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	user, err := userService.Repository.FindUserById(id)
+	user, err := svc.Repo.FindUserById(id)
 	if err != nil {
 		httphelper.WriteError(w, http.StatusNotFound, fmt.Errorf("user not found"))
 		return
@@ -148,10 +154,34 @@ func (userService *UserService) GetUserByID(w http.ResponseWriter, r *http.Reque
 	httphelper.WriteJSON(w, http.StatusOK, user)
 }
 
-func (userService *UserService) FindOrCreateFromMicrosoftAuth(
+func (svc *UserService) GetCurrentUser(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value(UserIDKey).(string)
+
+	user, err := svc.Repo.FindUserById(userID)
+	if err != nil {
+		httphelper.WriteError(w, http.StatusNotFound, fmt.Errorf("user not found"))
+		return
+	}
+
+	httphelper.WriteJSON(w, http.StatusOK, user)
+}
+
+func (svc *UserService) FindUserOrganizations(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value(UserIDKey).(string)
+
+	orgs, err := svc.Repo.GetUserOrganizations(userID)
+	if err != nil {
+		httphelper.WriteError(w, http.StatusNotFound, fmt.Errorf("orgs not found"))
+		return
+	}
+
+	httphelper.WriteJSON(w, http.StatusOK, orgs)
+}
+
+func (svc *UserService) FindOrCreateFromMicrosoftAuth(
 	msUserInfo *MicrosoftUserInfo,
 ) (*UserEntity, error) {
-	user, err := userService.Repository.FindUserByEmail(msUserInfo.Email)
+	user, err := svc.Repo.FindUserByEmail(msUserInfo.Email)
 	if err == nil {
 		return user, nil
 	}
@@ -162,7 +192,7 @@ func (userService *UserService) FindOrCreateFromMicrosoftAuth(
 		Email:     msUserInfo.Email,
 	}
 
-	insertedUser, err := userService.Repository.InsertUser(&userToBeInserted)
+	insertedUser, err := svc.Repo.InsertUser(&userToBeInserted)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create user from Microsoft auth: %w", err)
 	}
@@ -170,14 +200,18 @@ func (userService *UserService) FindOrCreateFromMicrosoftAuth(
 	return insertedUser, nil
 }
 
-func (userService *UserService) HasAccess(userID string, permission string) (bool, error) {
-	return userService.Repository.HasAccess(userID, permission)
+func (svc *UserService) HasAccess(userID string, permission string) (bool, error) {
+	return svc.Repo.HasAccess(userID, permission)
 }
 
-func (userService *UserService) GenerateUserToken(user *UserEntity) (string, error) {
+func (svc *UserService) FindUserBranches(userID string, orgId string) ([]BranchEntity, error) {
+	return svc.Repo.GetUserBranches(userID, orgId)
+}
+
+func (svc *UserService) GenerateUserToken(user *UserEntity) (string, error) {
 	expiration := time.Second * time.Duration(config.Variables.JwtExpirationInSeconds)
 
-	roles, err := userService.Repository.GetRoles(user.ID)
+	roles, err := svc.Repo.GetRoles(user.ID)
 	if err != nil {
 		return "", fmt.Errorf("failed to get user roles: %w", err)
 	}
@@ -197,10 +231,68 @@ func (userService *UserService) GenerateUserToken(user *UserEntity) (string, err
 	return tokenString, nil
 }
 
-func (userService *UserService) authenticateUserByEmailPassword(
+func (svc *UserService) GetOrganizationUsers(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	orgID := vars["orgId"]
+
+	users, err := svc.Repo.FindOrganizationUsers(orgID)
+	if err != nil {
+		http.Error(w, "Error retrieving organization users", http.StatusInternalServerError)
+		return
+	}
+
+	httphelper.WriteJSON(w, http.StatusOK, users)
+}
+
+func (svc *UserService) GetOrganizationUserByID(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	orgID := vars["orgId"]
+	userID := vars["id"]
+
+	user, err := svc.Repo.FindOrganizationUserByID(orgID, userID)
+	if err != nil {
+		http.Error(w, "User not found or not in this organization", http.StatusNotFound)
+		return
+	}
+
+	httphelper.WriteJSON(w, http.StatusOK, user)
+}
+
+func (svc *UserService) GetBranchUsers(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	orgID := vars["orgId"]
+	branchID := vars["branchId"]
+
+	users, err := svc.Repo.FindBranchUsers(orgID, branchID)
+	if err != nil {
+		http.Error(w, "Error retrieving branch users", http.StatusInternalServerError)
+		return
+	}
+
+	httphelper.WriteJSON(w, http.StatusOK, users)
+}
+
+func (svc *UserService) GetOrganizationBranches(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	orgID := vars["orgId"]
+
+	branches, err := svc.Repo.GetOrganizationBranches(orgID)
+	if err != nil {
+		httphelper.WriteError(
+			w,
+			http.StatusInternalServerError,
+			fmt.Errorf("error retrieving branches: %w", err),
+		)
+		return
+	}
+
+	httphelper.WriteJSON(w, http.StatusOK, branches)
+}
+
+func (svc *UserService) authenticateUserByEmailPassword(
 	loginUserPayload LoginUserPayload,
 ) (*UserEntity, error) {
-	user, err := userService.Repository.FindUserByEmail(loginUserPayload.Email)
+	user, err := svc.Repo.FindUserByEmail(loginUserPayload.Email)
 
 	if err != nil {
 		return nil, err

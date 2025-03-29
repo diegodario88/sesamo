@@ -21,11 +21,26 @@ func (h *Handler) RegisterRoutes(router *mux.Router) *Handler {
 	protected := router.PathPrefix("/").Subrouter()
 	protected.Use(AuthMiddleware)
 
-	protected.Handle("/users", RBACMiddleware(h, "users:read")(
-		http.HandlerFunc(h.GetAllUsers))).Methods("GET")
+	protected.HandleFunc("/users/me", h.GetCurrentUser).Methods("GET")
+	protected.HandleFunc("/users/organizations", h.FindUserOrganizations).Methods("GET")
 
-	protected.Handle("/users/{id}", RBACMiddleware(h, "users:read")(
-		http.HandlerFunc(h.GetUserByID))).Methods("GET")
+	orgRouter := protected.PathPrefix("/organizations/{orgId}").Subrouter()
+	orgRouter.Use(h.OrganizationAccessMiddleware)
+
+	orgRouter.Handle("/branches", RBACMiddleware(h, "branches:read")(
+		http.HandlerFunc(h.GetOrganizationBranches))).Methods("GET")
+
+	orgRouter.Handle("/users", RBACMiddleware(h, "users:read")(
+		http.HandlerFunc(h.GetOrganizationUsers))).Methods("GET")
+
+	orgRouter.Handle("/users/{id}", RBACMiddleware(h, "users:read")(
+		http.HandlerFunc(h.GetOrganizationUserByID))).Methods("GET")
+
+	branchRouter := orgRouter.PathPrefix("/branches/{branchId}").Subrouter()
+	branchRouter.Use(h.BranchAccessMiddleware)
+
+	branchRouter.Handle("/users", RBACMiddleware(h, "users:read")(
+		http.HandlerFunc(h.GetBranchUsers))).Methods("GET")
 
 	return h
 }

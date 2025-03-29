@@ -8,6 +8,7 @@ import (
 
 	"github.com/diegodario88/sesamo/config"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/gorilla/mux"
 )
 
 type ContextKey string
@@ -102,4 +103,55 @@ func RBACMiddleware(svc Checker, permission string) func(http.Handler) http.Hand
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+func (h *Handler) OrganizationAccessMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		orgID := vars["orgId"]
+		userID := r.Context().Value(UserIDKey).(string)
+
+		orgs, err := h.Repo.GetUserOrganizations(userID)
+		if err != nil || !hasOrganization(orgs, orgID) {
+			http.Error(w, "Unauthorized access to organization", http.StatusForbidden)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+func (h *Handler) BranchAccessMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		orgID := vars["orgId"]
+		branchID := vars["branchId"]
+		userID := r.Context().Value(UserIDKey).(string)
+
+		branches, err := h.FindUserBranches(userID, orgID)
+		if err != nil || !hasBranch(branches, branchID) {
+			http.Error(w, "Unauthorized access to branch", http.StatusForbidden)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+func hasOrganization(orgs []OrganizationEntity, orgID string) bool {
+	for _, org := range orgs {
+		if org.ID == orgID {
+			return true
+		}
+	}
+	return false
+}
+
+func hasBranch(branches []BranchEntity, branchID string) bool {
+	for _, branch := range branches {
+		if branch.ID == branchID {
+			return true
+		}
+	}
+	return false
 }
